@@ -10,7 +10,9 @@ export type Category = 'pranzo' | 'cena' | 'trasporto' | 'hotel' | 'altro';
 
 export const CATEGORIES: Category[] = ['pranzo', 'cena', 'trasporto', 'hotel', 'altro'];
 
-export const OWNER = 'demetrio';
+export const OWNER    = 'demetrio';
+export const SURNAME  = 'Ferraro';
+export const COMPANY  = 'WaveByVento';
 
 export interface Trip {
   id: string;

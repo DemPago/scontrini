@@ -7,7 +7,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as MailComposer from 'expo-mail-composer';
 import * as XLSX from 'xlsx';
 import { useLocalSearchParams } from 'expo-router';
-import { supabase, Expense } from '../../lib/supabase';
+import { supabase, Expense, SURNAME, COMPANY } from '../../lib/supabase';
 
 export default function ExportScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
@@ -49,7 +49,8 @@ export default function ExportScreen() {
       const wb         = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Spese');
       const xlsxBase64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-      const label      = (name ?? 'trasferta').replace(/\s+/g, '_');
+      const tripParts  = (name ?? 'trasferta').replace(/\s+/g, '_');
+      const label      = `${SURNAME}_${tripParts}_${COMPANY}`;
       const xlsxPath   = `${FileSystem.cacheDirectory}${label}.xlsx`;
       await FileSystem.writeAsStringAsync(xlsxPath, xlsxBase64, { encoding: FileSystem.EncodingType.Base64 });
 
@@ -66,7 +67,7 @@ export default function ExportScreen() {
 
       await MailComposer.composeAsync({
         recipients: [toEmail.trim()],
-        subject: `Note spese — ${name ?? 'trasferta'} (€${total.toFixed(2)})`,
+        subject: `Note spese ${SURNAME} — ${name ?? 'trasferta'} (€${total.toFixed(2)})`,
         body: `In allegato il riepilogo spese per "${name}": ${expenses.length} voci, totale €${total.toFixed(2)}.`,
         attachments,
       });
