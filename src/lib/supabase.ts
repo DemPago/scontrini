@@ -10,9 +10,19 @@ export type Category = 'pranzo' | 'cena' | 'trasporto' | 'hotel' | 'altro';
 
 export const CATEGORIES: Category[] = ['pranzo', 'cena', 'trasporto', 'hotel', 'altro'];
 
+export const OWNER = 'demetrio';
+
+export interface Trip {
+  id: string;
+  created_at: string;
+  name: string;
+  slug: string;
+}
+
 export interface Expense {
   id: string;
   created_at: string;
+  trip_id: string;
   date: string;
   amount: number;
   category: Category;

@@ -4,12 +4,13 @@ import {
   ScrollView, Alert, ActivityIndicator, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import { supabase, Category, CATEGORIES } from '../lib/supabase';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { supabase, Category, CATEGORIES, OWNER } from '../../lib/supabase';
 
-export default function AddScreen() {
+export default function AddExpenseScreen() {
   const router = useRouter();
-  const today  = new Date().toISOString().split('T')[0];
+  const { tripId, tripName } = useLocalSearchParams<{ tripId: string; tripName: string }>();
+  const today = new Date().toISOString().split('T')[0];
 
   const [date, setDate]         = useState(today);
   const [amount, setAmount]     = useState('');
@@ -22,7 +23,6 @@ export default function AddScreen() {
     const perm = useCamera
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
     if (!perm.granted) { Alert.alert('Permesso negato', 'Abilita il permesso nelle impostazioni.'); return; }
 
     const result = useCamera
@@ -40,8 +40,10 @@ export default function AddScreen() {
     let receipt_path: string | null = null;
 
     if (imageUri) {
-      const ext      = imageUri.split('.').pop() ?? 'jpg';
-      const path     = `${Date.now()}.${ext}`;
+      const ext  = imageUri.split('.').pop() ?? 'jpg';
+      const slug = (tripName ?? 'trasferta').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const path = `${OWNER}/${slug}/${Date.now()}.${ext}`;
+
       const response = await fetch(imageUri);
       const blob     = await response.blob();
 
@@ -56,7 +58,13 @@ export default function AddScreen() {
     }
 
     const { error } = await supabase.from('expenses').insert({
-      date, amount: parseFloat(amount), category, notes, receipt_url, receipt_path,
+      trip_id: tripId,
+      date,
+      amount: parseFloat(amount),
+      category,
+      notes,
+      receipt_url,
+      receipt_path,
     });
 
     setSaving(false);
@@ -66,7 +74,6 @@ export default function AddScreen() {
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-
       <View style={styles.photoRow}>
         {imageUri
           ? <Image source={{ uri: imageUri }} style={styles.preview} />
@@ -91,11 +98,7 @@ export default function AddScreen() {
       <Text style={styles.label}>Categoria</Text>
       <View style={styles.categories}>
         {CATEGORIES.map(c => (
-          <TouchableOpacity
-            key={c}
-            style={[styles.catChip, category === c && styles.catChipActive]}
-            onPress={() => setCategory(c)}
-          >
+          <TouchableOpacity key={c} style={[styles.catChip, category === c && styles.catChipActive]} onPress={() => setCategory(c)}>
             <Text style={[styles.catText, category === c && styles.catTextActive]}>{c}</Text>
           </TouchableOpacity>
         ))}
@@ -107,7 +110,6 @@ export default function AddScreen() {
       <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salva spesa</Text>}
       </TouchableOpacity>
-
       <View style={{ height: 40 }} />
     </ScrollView>
   );
