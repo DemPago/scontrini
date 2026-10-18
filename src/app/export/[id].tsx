@@ -6,10 +6,11 @@ import {
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MailComposer from 'expo-mail-composer';
 import { useLocalSearchParams } from 'expo-router';
-import { supabase, Expense, SURNAME } from '../../lib/supabase';
+import { supabase, Expense } from '../../lib/supabase';
+import { getUser } from '../../lib/user';
 
 export default function ExportScreen() {
-  const { id, name, excelUrl } = useLocalSearchParams<{ id: string; name: string; excelUrl: string }>();
+  const { id, name, excelUrl, surname } = useLocalSearchParams<{ id: string; name: string; excelUrl: string; surname: string }>();
 
   const [toEmail, setToEmail]     = useState('');
   const [exporting, setExporting] = useState(false);
@@ -45,7 +46,7 @@ export default function ExportScreen() {
 
       await MailComposer.composeAsync({
         recipients: [toEmail.trim()],
-        subject: `Note spese ${SURNAME} — ${name}`,
+        subject: `Note spese ${surname || 'Scontrini'} — ${name}`,
         body: `In allegato il riepilogo spese per "${name}".`,
         attachments,
       });

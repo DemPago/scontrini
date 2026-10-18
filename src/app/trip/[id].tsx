@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import * as XLSX from 'xlsx';
-import { supabase, Expense, Trip, tripFileName, OWNER } from '../../lib/supabase';
+import { supabase, Expense, Trip, tripFileName } from '../../lib/supabase';
+import { getUser, ownerKey } from '../../lib/user';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   pranzo: '🍝', cena: '🍷', trasporto: '🚆', hotel: '🏨', altro: '📎',
@@ -21,9 +22,12 @@ export default function TripScreen() {
   const [loading, setLoading]   = useState(true);
   const [closing, setClosing]   = useState(false);
   const [total, setTotal]       = useState(0);
+  const [cognome, setCognome]   = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    const user = await getUser();
+    if (user) setCognome(user.cognome);
     const [{ data: tripData }, { data: expData }] = await Promise.all([
       supabase.from('trips').select('*').eq('id', id).single(),
       supabase.from('expenses').select('*').eq('trip_id', id).order('date', { ascending: false }),
@@ -77,8 +81,10 @@ export default function TripScreen() {
             const data = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
             const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
-            const filename = tripFileName(trip);
-            const path     = `${OWNER}/${filename}`;
+            const filename = tripFileName(trip, cognome || 'Scontrini');
+            const user     = await getUser();
+            const owner    = user ? ownerKey(user) : 'unknown';
+            const path     = `${owner}/${filename}`;
 
             const { error: upErr } = await supabase.storage
               .from('exports')
@@ -150,7 +156,7 @@ export default function TripScreen() {
       {isClosed && trip?.excel_url && (
         <TouchableOpacity
           style={styles.exportBar}
-          onPress={() => router.push({ pathname: '/export/[id]', params: { id, name: trip.name, excelUrl: trip.excel_url! } })}
+          onPress={() => router.push({ pathname: '/export/[id]', params: { id, name: trip.name, excelUrl: trip.excel_url!, surname: cognome } })}
         >
           <Text style={styles.exportBarText}>📤 Invia Excel via mail</Text>
         </TouchableOpacity>

@@ -7,12 +7,10 @@ const supabaseKey  = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export type Category = 'pranzo' | 'cena' | 'trasporto' | 'hotel' | 'altro';
-
 export const CATEGORIES: Category[] = ['pranzo', 'cena', 'trasporto', 'hotel', 'altro'];
 
-export const OWNER    = 'demetrio';
-export const SURNAME  = 'Ferraro';
-export const COMPANY  = 'WaveByVento';
+export const OWNER   = 'demetrio';
+export const SURNAME = 'Ferraro';
 
 export interface Trip {
   id: string;
@@ -27,17 +25,6 @@ export interface Trip {
   excel_url: string | null;
 }
 
-export function tripLabel(t: Pick<Trip, 'location' | 'year' | 'month' | 'event_name'>): string {
-  const m = String(t.month).padStart(2, '0');
-  const parts = [t.location, `${t.year}`, m];
-  if (t.event_name) parts.push(t.event_name);
-  return parts.join('_');
-}
-
-export function tripFileName(t: Pick<Trip, 'location' | 'year' | 'month' | 'event_name'>): string {
-  return `${SURNAME}_${tripLabel(t)}.xlsx`;
-}
-
 export interface Expense {
   id: string;
   created_at: string;
@@ -48,4 +35,15 @@ export interface Expense {
   notes: string;
   receipt_url: string | null;
   receipt_path: string | null;
+}
+
+export function tripLabel(t: Pick<Trip, 'location' | 'year' | 'month' | 'event_name'>): string {
+  const m = String(t.month).padStart(2, '0');
+  const parts = [t.location, `${t.year}`, m];
+  if (t.event_name) parts.push(t.event_name);
+  return parts.join('_');
+}
+
+export function tripFileName(t: Pick<Trip, 'location' | 'year' | 'month' | 'event_name'>, cognome?: string): string {
+  return `${cognome ?? SURNAME}_${tripLabel(t)}.xlsx`;
 }

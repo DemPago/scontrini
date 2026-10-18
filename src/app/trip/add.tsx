@@ -4,7 +4,8 @@ import {
   StyleSheet, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase, tripLabel } from '../../lib/supabase';
+import { supabase, tripLabel, SURNAME } from '../../lib/supabase';
+import { getUser, ownerKey } from '../../lib/user';
 
 const MONTHS = [
   'Gen','Feb','Mar','Apr','Mag','Giu',
@@ -30,17 +31,19 @@ export default function NewTripScreen() {
     if (!year || isNaN(Number(year))) { Alert.alert('Anno mancante', 'Inserisci un anno valido.'); return; }
 
     setSaving(true);
-    const slug = preview.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
-    const name = preview;
+    const slug  = preview.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+    const user  = await getUser();
+    const owner = user ? ownerKey(user) : 'unknown';
 
     const { error } = await supabase.from('trips').insert({
-      name,
+      name: preview,
       slug,
       location: location.trim(),
       year: Number(year),
       month,
       event_name: eventName.trim() || null,
       status: 'open',
+      owner,
     });
 
     setSaving(false);
@@ -74,7 +77,7 @@ export default function NewTripScreen() {
 
       <View style={styles.previewBox}>
         <Text style={styles.previewLabel}>Nome file Excel:</Text>
-        <Text style={styles.previewName}>Ferraro_{preview}.xlsx</Text>
+        <Text style={styles.previewName}>{SURNAME}_{preview}.xlsx</Text>
       </View>
 
       <TouchableOpacity style={styles.btn} onPress={create} disabled={saving}>

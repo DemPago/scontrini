@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase, Trip } from '../lib/supabase';
+import { getUser, ownerKey } from '../lib/user';
 
 export default function TripsScreen() {
   const router = useRouter();
@@ -13,9 +14,12 @@ export default function TripsScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    const user = await getUser();
+    const owner = user ? ownerKey(user) : '';
     const { data, error } = await supabase
       .from('trips')
       .select('*')
+      .eq('owner', owner)
       .order('created_at', { ascending: false });
     if (error) Alert.alert('Errore', error.message);
     else setTrips(data ?? []);

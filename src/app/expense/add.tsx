@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { supabase, Category, CATEGORIES, OWNER } from '../../lib/supabase';
+import { supabase, Category, CATEGORIES } from '../../lib/supabase';
+import { getUser, ownerKey } from '../../lib/user';
 
 export default function AddExpenseScreen() {
   const router = useRouter();
@@ -40,9 +41,11 @@ export default function AddExpenseScreen() {
     let receipt_path: string | null = null;
 
     if (imageUri) {
-      const ext  = imageUri.split('.').pop() ?? 'jpg';
-      const slug = (tripName ?? 'trasferta').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-      const path = `${OWNER}/${slug}/${Date.now()}.${ext}`;
+      const ext   = imageUri.split('.').pop() ?? 'jpg';
+      const slug  = (tripName ?? 'trasferta').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const user  = await getUser();
+      const owner = user ? ownerKey(user) : 'unknown';
+      const path  = `${owner}/${slug}/${Date.now()}.${ext}`;
 
       const response = await fetch(imageUri);
       const blob     = await response.blob();
