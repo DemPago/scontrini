@@ -19,6 +19,23 @@ export interface Trip {
   created_at: string;
   name: string;
   slug: string;
+  location: string;
+  year: number;
+  month: number;
+  event_name: string | null;
+  status: 'open' | 'closed';
+  excel_url: string | null;
+}
+
+export function tripLabel(t: Pick<Trip, 'location' | 'year' | 'month' | 'event_name'>): string {
+  const m = String(t.month).padStart(2, '0');
+  const parts = [t.location, `${t.year}`, m];
+  if (t.event_name) parts.push(t.event_name);
+  return parts.join('_');
+}
+
+export function tripFileName(t: Pick<Trip, 'location' | 'year' | 'month' | 'event_name'>): string {
+  return `${SURNAME}_${tripLabel(t)}.xlsx`;
 }
 
 export interface Expense {

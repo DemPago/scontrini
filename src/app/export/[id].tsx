@@ -1,102 +1,86 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MailComposer from 'expo-mail-composer';
-import * as XLSX from 'xlsx';
 import { useLocalSearchParams } from 'expo-router';
-import { supabase, Expense, SURNAME, COMPANY } from '../../lib/supabase';
+import { supabase, Expense, SURNAME } from '../../lib/supabase';
 
 export default function ExportScreen() {
-  const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
+  const { id, name, excelUrl } = useLocalSearchParams<{ id: string; name: string; excelUrl: string }>();
 
-  const [expenses, setExpenses]   = useState<Expense[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [exporting, setExporting] = useState(false);
   const [toEmail, setToEmail]     = useState('');
+  const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    supabase
-      .from('expenses')
-      .select('*')
-      .eq('trip_id', id)
-      .order('date', { ascending: true })
-      .then(({ data }) => { setExpenses(data ?? []); setLoading(false); });
-  }, [id]);
-
-  const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
-
-  const exportAndSend = async () => {
+  const send = async () => {
     if (!toEmail.trim()) { Alert.alert('Email mancante', 'Inserisci un indirizzo email.'); return; }
     if (!(await MailComposer.isAvailableAsync())) { Alert.alert('Mail non disponibile', 'Configura un account email sul dispositivo.'); return; }
 
     setExporting(true);
     try {
-      const rows = [
-        ...expenses.map(e => ({
-          Data: e.date,
-          Categoria: e.category,
-          'Importo (€)': Number(e.amount).toFixed(2),
-          Note: e.notes,
-          Scontrino: e.receipt_url ?? '',
-        })),
-        { Data: '', Categoria: 'TOTALE', 'Importo (€)': total.toFixed(2), Note: '', Scontrino: '' },
-      ];
+      // Scarica Excel già generato da Supabase Storage
+      const filename  = excelUrl.split('/').pop() ?? `${name}.xlsx`;
+      const localPath = `${FileSystem.cacheDirectory}${filename}`;
+      const info      = await FileSystem.getInfoAsync(localPath);
+      if (!info.exists) await FileSystem.downloadAsync(excelUrl, localPath);
 
-      const ws         = XLSX.utils.json_to_sheet(rows);
-      const wb         = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Spese');
-      const xlsxBase64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-      const tripParts  = (name ?? 'trasferta').replace(/\s+/g, '_');
-      const label      = `${SURNAME}_${tripParts}_${COMPANY}`;
-      const xlsxPath   = `${FileSystem.cacheDirectory}${label}.xlsx`;
-      await FileSystem.writeAsStringAsync(xlsxPath, xlsxBase64, { encoding: FileSystem.EncodingType.Base64 });
+      // Scarica foto scontrini
+      const { data: expenses } = await supabase
+        .from('expenses')
+        .select('id, receipt_url')
+        .eq('trip_id', id);
 
-      const attachments: string[] = [xlsxPath];
-      for (const e of expenses) {
+      const attachments: string[] = [localPath];
+      for (const e of (expenses ?? []) as Pick<Expense, 'id' | 'receipt_url'>[]) {
         if (!e.receipt_url) continue;
-        const ext       = e.receipt_url.split('.').pop()?.split('?')[0] ?? 'jpg';
-        const localPath = `${FileSystem.cacheDirectory}receipt_${e.id}.${ext}`;
-        if (!(await FileSystem.getInfoAsync(localPath)).exists) {
-          await FileSystem.downloadAsync(e.receipt_url, localPath);
+        const ext  = e.receipt_url.split('.').pop()?.split('?')[0] ?? 'jpg';
+        const path = `${FileSystem.cacheDirectory}receipt_${e.id}.${ext}`;
+        if (!(await FileSystem.getInfoAsync(path)).exists) {
+          await FileSystem.downloadAsync(e.receipt_url, path);
         }
-        attachments.push(localPath);
+        attachments.push(path);
       }
 
       await MailComposer.composeAsync({
         recipients: [toEmail.trim()],
-        subject: `Note spese ${SURNAME} — ${name ?? 'trasferta'} (€${total.toFixed(2)})`,
-        body: `In allegato il riepilogo spese per "${name}": ${expenses.length} voci, totale €${total.toFixed(2)}.`,
+        subject: `Note spese ${SURNAME} — ${name}`,
+        body: `In allegato il riepilogo spese per "${name}".`,
         attachments,
       });
     } catch (err: any) {
-      Alert.alert('Errore export', err.message ?? String(err));
+      Alert.alert('Errore', err.message ?? String(err));
     } finally {
       setExporting(false);
     }
   };
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007AFF" />;
-
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.summary}>
-        <Text style={styles.summaryTitle}>{name}</Text>
-        <Text style={styles.summaryTotal}>€{total.toFixed(2)}</Text>
-        <Text style={styles.summaryCount}>{expenses.length} {expenses.length === 1 ? 'spesa' : 'spese'}</Text>
+        <Text style={styles.summaryEmoji}>📊</Text>
+        <Text style={styles.summaryName}>{name}</Text>
+        <Text style={styles.summaryFile}>{excelUrl.split('/').pop()}</Text>
       </View>
 
       <Text style={styles.label}>Destinatario</Text>
-      <TextInput style={styles.input} value={toEmail} onChangeText={setToEmail} keyboardType="email-address" autoCapitalize="none" placeholder="amministrazione@azienda.it" />
+      <TextInput
+        style={styles.input}
+        value={toEmail}
+        onChangeText={setToEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        placeholder="amministrazione@azienda.it"
+        autoFocus
+      />
 
       <View style={styles.infoBox}>
-        <Text style={styles.infoText}>Verrà allegato un file Excel con tutte le spese + le foto degli scontrini.</Text>
+        <Text style={styles.infoText}>Verrà allegato l'Excel già generato + tutte le foto degli scontrini.</Text>
       </View>
 
-      <TouchableOpacity style={styles.exportBtn} onPress={exportAndSend} disabled={exporting}>
-        {exporting ? <ActivityIndicator color="#fff" /> : <Text style={styles.exportBtnText}>📤 Genera e invia</Text>}
+      <TouchableOpacity style={styles.sendBtn} onPress={send} disabled={exporting}>
+        {exporting ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendBtnText}>📤 Invia</Text>}
       </TouchableOpacity>
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -104,15 +88,15 @@ export default function ExportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:     { flex: 1, backgroundColor: '#f2f2f7', padding: 16 },
-  summary:       { backgroundColor: '#007AFF', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 24 },
-  summaryTitle:  { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
-  summaryTotal:  { color: '#fff', fontSize: 42, fontWeight: '700', marginTop: 4 },
-  summaryCount:  { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4 },
-  label:         { fontSize: 13, color: '#666', marginBottom: 6, marginTop: 16 },
-  input:         { backgroundColor: '#fff', borderRadius: 10, padding: 12, fontSize: 16 },
-  infoBox:       { backgroundColor: '#e8f4fd', borderRadius: 10, padding: 14, marginTop: 20 },
-  infoText:      { color: '#555', fontSize: 13, lineHeight: 20 },
-  exportBtn:     { marginTop: 28, backgroundColor: '#34C759', borderRadius: 12, padding: 16, alignItems: 'center' },
-  exportBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  container:   { flex: 1, backgroundColor: '#f2f2f7', padding: 16 },
+  summary:     { backgroundColor: '#8e8e93', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 24 },
+  summaryEmoji:{ fontSize: 40 },
+  summaryName: { color: '#fff', fontSize: 20, fontWeight: '700', marginTop: 8 },
+  summaryFile: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4 },
+  label:       { fontSize: 13, color: '#666', marginBottom: 6, marginTop: 16 },
+  input:       { backgroundColor: '#fff', borderRadius: 10, padding: 12, fontSize: 16 },
+  infoBox:     { backgroundColor: '#e8f4fd', borderRadius: 10, padding: 14, marginTop: 20 },
+  infoText:    { color: '#555', fontSize: 13, lineHeight: 20 },
+  sendBtn:     { marginTop: 28, backgroundColor: '#34C759', borderRadius: 12, padding: 16, alignItems: 'center' },
+  sendBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 });
