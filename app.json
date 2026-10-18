@@ -20,6 +20,19 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "scheme": "scontrini",
+    "plugins": [
+      "expo-mail-composer",
+      "expo-router",
+      "expo-camera",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Serve per allegare foto degli scontrini.",
+          "cameraPermission": "Serve per fotografare gli scontrini."
+        }
+      ]
+    ]
   }
 }
