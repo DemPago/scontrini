@@ -5,9 +5,12 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase, Category, CATEGORIES } from '../../lib/supabase';
 import { getUser, ownerKey } from '../../lib/user';
+
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${process.env.EXPO_PUBLIC_GEMINI_API_KEY}`;
 
 export default function AddExpenseScreen() {
   const router = useRouter();
@@ -21,6 +24,7 @@ export default function AddExpenseScreen() {
   const [attachmentUri, setAttachmentUri]   = useState<string | null>(null);
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
   const [saving, setSaving]                 = useState(false);
+  const [analyzing, setAnalyzing]           = useState(false);
 
   const pickImage = async (useCamera: boolean) => {
     const perm = useCamera
@@ -35,6 +39,59 @@ export default function AddExpenseScreen() {
     if (!result.canceled) {
       setAttachmentUri(result.assets[0].uri);
       setAttachmentName(null);
+    }
+  };
+
+  const analyzeWithAI = async () => {
+    if (!attachmentUri || attachmentName) return;
+    setAnalyzing(true);
+    try {
+      const base64 = await FileSystem.readAsStringAsync(attachmentUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const res = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { inline_data: { mime_type: 'image/jpeg', data: base64 } },
+            { text: 'Analizza questo scontrino. Rispondi SOLO con JSON: {"importo":"numero es 12.50","data":"YYYY-MM-DD o null","categoria":"pranzo|cena|trasporto|hotel|altro"}. Nessun testo aggiuntivo.' },
+          ]}],
+          generationConfig: { temperature: 0.1 },
+        }),
+      });
+      if ([429, 402, 403].includes(res.status)) {
+        Alert.alert(
+          'Limite AI raggiunto',
+          "Hai esaurito le richieste gratuite per oggi.\nPuoi continuare a usare l'app normalmente.\nRiprova domani per l'AI. 🤖"
+        );
+        return;
+      }
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const errMsg = errBody?.error?.message ?? '';
+        if (/quota|limit|exhausted|billing|payment/i.test(errMsg)) {
+          Alert.alert(
+            'Limite AI raggiunto',
+            "Hai esaurito le richieste gratuite per oggi.\nPuoi continuare a usare l'app normalmente.\nRiprova domani per l'AI. 🤖"
+          );
+          return;
+        }
+        throw new Error(`Errore API ${res.status}`);
+      }
+      const json = await res.json();
+      const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('Risposta non valida');
+      const parsed = JSON.parse(match[0]);
+      if (parsed.importo) setAmount(String(parsed.importo));
+      if (parsed.data)    setDate(parsed.data);
+      if (parsed.categoria && CATEGORIES.includes(parsed.categoria as Category))
+        setCategory(parsed.categoria as Category);
+    } catch {
+      Alert.alert('AI non disponibile', 'Impossibile analizzare lo scontrino. Compila i campi manualmente.');
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -112,6 +169,18 @@ export default function AddExpenseScreen() {
           <TouchableOpacity style={[styles.photoBtn, { marginTop: 8 }]} onPress={pickDocument}>
             <Text style={styles.photoBtnText}>📎 Documento</Text>
           </TouchableOpacity>
+          {attachmentUri && !attachmentName && (
+            <TouchableOpacity
+              style={[styles.photoBtn, styles.photoBtnAI, { marginTop: 8 }]}
+              onPress={analyzeWithAI}
+              disabled={analyzing}
+            >
+              {analyzing
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={styles.photoBtnText}>🤖 Analizza</Text>
+              }
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -150,6 +219,7 @@ const styles = StyleSheet.create({
   docIcon:              { fontSize: 28, marginBottom: 4 },
   photoButtons:         { flex: 1, justifyContent: 'center' },
   photoBtn:             { backgroundColor: '#007AFF', borderRadius: 8, padding: 10, alignItems: 'center' },
+  photoBtnAI:           { backgroundColor: '#8e44ad' },
   photoBtnText:         { color: '#fff', fontWeight: '600' },
   label:                { fontSize: 13, color: '#666', marginBottom: 6, marginTop: 14 },
   input:                { backgroundColor: '#fff', borderRadius: 10, padding: 12, fontSize: 16 },
