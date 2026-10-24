@@ -4,6 +4,7 @@ import {
   ScrollView, Alert, ActivityIndicator, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase, Category, CATEGORIES } from '../../lib/supabase';
 import { getUser, ownerKey } from '../../lib/user';
@@ -17,8 +18,9 @@ export default function AddExpenseScreen() {
   const [amount, setAmount]     = useState('');
   const [category, setCategory] = useState<Category>('altro');
   const [notes, setNotes]       = useState('');
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [saving, setSaving]     = useState(false);
+  const [attachmentUri, setAttachmentUri]   = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [saving, setSaving]                 = useState(false);
 
   const pickImage = async (useCamera: boolean) => {
     const perm = useCamera
@@ -30,7 +32,18 @@ export default function AddExpenseScreen() {
       ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
       : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, mediaTypes: ImagePicker.MediaTypeOptions.Images });
 
-    if (!result.canceled) setImageUri(result.assets[0].uri);
+    if (!result.canceled) {
+      setAttachmentUri(result.assets[0].uri);
+      setAttachmentName(null);
+    }
+  };
+
+  const pickDocument = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+    if (!result.canceled && result.assets.length > 0) {
+      setAttachmentUri(result.assets[0].uri);
+      setAttachmentName(result.assets[0].name);
+    }
   };
 
   const save = async () => {
@@ -40,19 +53,23 @@ export default function AddExpenseScreen() {
     let receipt_url: string | null  = null;
     let receipt_path: string | null = null;
 
-    if (imageUri) {
-      const ext   = imageUri.split('.').pop() ?? 'jpg';
-      const slug  = (tripName ?? 'trasferta').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-      const user  = await getUser();
-      const owner = user ? ownerKey(user) : 'unknown';
-      const path  = `${owner}/${slug}/${Date.now()}.${ext}`;
+    if (attachmentUri) {
+      const isDoc  = !!attachmentName;
+      const ext    = isDoc
+        ? (attachmentName!.split('.').pop() ?? 'pdf')
+        : (attachmentUri.split('.').pop() ?? 'jpg');
+      const slug   = (tripName ?? 'trasferta').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const user   = await getUser();
+      const owner  = user ? ownerKey(user) : 'unknown';
+      const path   = `${owner}/${slug}/${Date.now()}.${ext}`;
 
-      const response = await fetch(imageUri);
+      const response = await fetch(attachmentUri);
       const blob     = await response.blob();
+      const mime     = isDoc ? (blob.type || `application/${ext}`) : `image/${ext}`;
 
       const { error: upErr } = await supabase.storage
         .from('receipts')
-        .upload(path, blob, { contentType: `image/${ext}` });
+        .upload(path, blob, { contentType: mime });
 
       if (upErr) { Alert.alert('Upload fallito', upErr.message); setSaving(false); return; }
 
@@ -78,9 +95,11 @@ export default function AddExpenseScreen() {
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.photoRow}>
-        {imageUri
-          ? <Image source={{ uri: imageUri }} style={styles.preview} />
-          : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Nessuna foto</Text></View>
+        {attachmentUri && !attachmentName
+          ? <Image source={{ uri: attachmentUri }} style={styles.preview} />
+          : attachmentUri && attachmentName
+          ? <View style={styles.photoPlaceholder}><Text style={styles.docIcon}>📄</Text><Text style={styles.photoPlaceholderText} numberOfLines={2}>{attachmentName}</Text></View>
+          : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Nessun allegato</Text></View>
         }
         <View style={styles.photoButtons}>
           <TouchableOpacity style={styles.photoBtn} onPress={() => pickImage(true)}>
@@ -88,6 +107,9 @@ export default function AddExpenseScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={[styles.photoBtn, { marginTop: 8 }]} onPress={() => pickImage(false)}>
             <Text style={styles.photoBtnText}>🖼 Galleria</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.photoBtn, { marginTop: 8 }]} onPress={pickDocument}>
+            <Text style={styles.photoBtnText}>📎 Documento</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -123,7 +145,8 @@ const styles = StyleSheet.create({
   photoRow:             { flexDirection: 'row', gap: 12, marginBottom: 20 },
   preview:              { width: 120, height: 120, borderRadius: 10 },
   photoPlaceholder:     { width: 120, height: 120, borderRadius: 10, backgroundColor: '#ddd', alignItems: 'center', justifyContent: 'center' },
-  photoPlaceholderText: { color: '#999', fontSize: 12, textAlign: 'center' },
+  photoPlaceholderText: { color: '#999', fontSize: 11, textAlign: 'center', paddingHorizontal: 4 },
+  docIcon:              { fontSize: 28, marginBottom: 4 },
   photoButtons:         { flex: 1, justifyContent: 'center' },
   photoBtn:             { backgroundColor: '#007AFF', borderRadius: 8, padding: 10, alignItems: 'center' },
   photoBtnText:         { color: '#fff', fontWeight: '600' },
