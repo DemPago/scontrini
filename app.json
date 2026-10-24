@@ -37,7 +37,8 @@
           "photosPermission": "Serve per allegare foto degli scontrini.",
           "cameraPermission": "Serve per fotografare gli scontrini."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},
