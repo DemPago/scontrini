@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, ScrollView,
@@ -11,6 +11,18 @@ export default function ProfileSetupScreen() {
   const [nome, setNome]       = useState('');
   const [cognome, setCognome] = useState('');
   const [saving, setSaving]   = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const full = user.user_metadata?.full_name as string | undefined;
+      if (full) {
+        const parts = full.trim().split(' ');
+        setNome(parts[0] ?? '');
+        setCognome(parts.slice(1).join(' ') ?? '');
+      }
+    });
+  }, []);
 
   const save = async () => {
     if (!nome.trim() || !cognome.trim()) { Alert.alert('Dati mancanti', 'Inserisci nome e cognome.'); return; }

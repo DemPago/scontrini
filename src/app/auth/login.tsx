@@ -27,11 +27,29 @@ export default function LoginScreen() {
       const result = await WebBrowser.openAuthSessionAsync(data.url!, redirectTo);
       if (result.type !== 'success') return;
 
-      const { data: authData, error: exchError } = await supabase.auth.exchangeCodeForSession(result.url);
-      if (exchError) throw exchError;
+      const url = result.url;
+      let userId: string;
+
+      if (url.includes('#access_token=')) {
+        // implicit flow
+        const fragment = url.split('#')[1];
+        const params = new URLSearchParams(fragment);
+        const access_token  = params.get('access_token') ?? '';
+        const refresh_token = params.get('refresh_token') ?? '';
+        if (!access_token) throw new Error('Token mancante');
+        const { error: sessErr } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (sessErr) throw sessErr;
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user!.id;
+      } else {
+        // PKCE flow
+        const { data: authData, error: exchError } = await supabase.auth.exchangeCodeForSession(url);
+        if (exchError) throw exchError;
+        userId = authData.session!.user.id;
+      }
 
       const { data: profile } = await supabase
-        .from('profiles').select('id').eq('id', authData.session!.user.id).maybeSingle();
+        .from('profiles').select('id').eq('id', userId).maybeSingle();
       router.replace(profile ? '/' : '/auth/profile-setup');
     } catch (e: any) {
       Alert.alert('Errore', e.message ?? String(e));
