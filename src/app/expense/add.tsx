@@ -48,6 +48,7 @@ export default function AddExpenseScreen() {
 
   const save = async () => {
     if (!amount || isNaN(parseFloat(amount))) { Alert.alert('Importo mancante', 'Inserisci un importo valido.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { Alert.alert('Data non valida', 'Usa il formato YYYY-MM-DD, es: 2026-10-24.'); return; }
     setSaving(true);
 
     let receipt_url: string | null  = null;

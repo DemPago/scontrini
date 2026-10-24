@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase, tripLabel, SURNAME } from '../../lib/supabase';
+import { supabase, tripLabel } from '../../lib/supabase';
 import { getUser, ownerKey } from '../../lib/user';
 
 const MONTHS = [
@@ -21,6 +21,9 @@ export default function NewTripScreen() {
   const [month, setMonth]         = useState(now.getMonth() + 1);
   const [eventName, setEventName] = useState('');
   const [saving, setSaving]       = useState(false);
+  const [cognome, setCognome]     = useState('');
+
+  useEffect(() => { getUser().then(u => { if (u) setCognome(u.cognome); }); }, []);
 
   const preview = location.trim()
     ? tripLabel({ location: location.trim(), year: Number(year), month, event_name: eventName.trim() || null })
@@ -77,7 +80,7 @@ export default function NewTripScreen() {
 
       <View style={styles.previewBox}>
         <Text style={styles.previewLabel}>Nome file Excel:</Text>
-        <Text style={styles.previewName}>{SURNAME}_{preview}.xlsx</Text>
+        <Text style={styles.previewName}>{cognome || '…'}_{preview}.xlsx</Text>
       </View>
 
       <TouchableOpacity style={styles.btn} onPress={create} disabled={saving}>

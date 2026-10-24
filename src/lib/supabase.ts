@@ -9,8 +9,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 export type Category = 'pranzo' | 'cena' | 'trasporto' | 'hotel' | 'altro';
 export const CATEGORIES: Category[] = ['pranzo', 'cena', 'trasporto', 'hotel', 'altro'];
 
-export const OWNER   = 'demetrio';
-export const SURNAME = 'Ferraro';
 
 export interface Trip {
   id: string;

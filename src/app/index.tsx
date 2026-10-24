@@ -33,6 +33,13 @@ export default function TripsScreen() {
       { text: 'Annulla', style: 'cancel' },
       {
         text: 'Elimina', style: 'destructive', onPress: async () => {
+          const { data: expenses } = await supabase
+            .from('expenses')
+            .select('receipt_path')
+            .eq('trip_id', trip.id);
+          const paths = (expenses ?? []).map(e => e.receipt_path).filter(Boolean) as string[];
+          if (paths.length > 0) await supabase.storage.from('receipts').remove(paths);
+          await supabase.from('expenses').delete().eq('trip_id', trip.id);
           await supabase.from('trips').delete().eq('id', trip.id);
           load();
         },

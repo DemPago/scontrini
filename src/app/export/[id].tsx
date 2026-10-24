@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import * as MailComposer from 'expo-mail-composer';
 import { useLocalSearchParams } from 'expo-router';
 import { supabase, Expense } from '../../lib/supabase';
