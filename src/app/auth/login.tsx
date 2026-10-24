@@ -3,40 +3,23 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
 export default function LoginScreen() {
-  const [email, setEmail]   = useState('');
+  const router = useRouter();
+  const [email, setEmail]     = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent]     = useState(false);
 
   const send = async () => {
     const e = email.trim().toLowerCase();
     if (!e) { Alert.alert('Email mancante', 'Inserisci la tua email.'); return; }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: e,
-      options: { emailRedirectTo: 'scontrini://' },
-    });
+    const { error } = await supabase.auth.signInWithOtp({ email: e });
     setLoading(false);
     if (error) { Alert.alert('Errore', error.message); return; }
-    setSent(true);
+    router.push({ pathname: '/auth/verify', params: { email: e } });
   };
-
-  if (sent) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.inner}>
-          <Text style={styles.logo}>📬</Text>
-          <Text style={styles.title}>Controlla la mail</Text>
-          <Text style={styles.sub}>Abbiamo inviato un link a{'\n'}<Text style={styles.accent}>{email.trim().toLowerCase()}</Text>{'\n\n'}Clicca il link nell'email — l'app si aprirà automaticamente.</Text>
-          <TouchableOpacity style={styles.btnSecondary} onPress={() => setSent(false)}>
-            <Text style={styles.btnSecondaryText}>Cambia email</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -56,7 +39,7 @@ export default function LoginScreen() {
           onSubmitEditing={send}
         />
         <TouchableOpacity style={styles.btn} onPress={send} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Invia link</Text>}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Invia codice</Text>}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

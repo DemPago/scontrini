@@ -43,5 +43,5 @@ export function tripLabel(t: Pick<Trip, 'location' | 'year' | 'month' | 'event_n
 }
 
 export function tripFileName(t: Pick<Trip, 'location' | 'year' | 'month' | 'event_name'>, cognome?: string): string {
-  return `${cognome ?? SURNAME}_${tripLabel(t)}.xlsx`;
+  return `${cognome ?? 'Scontrini'}_${tripLabel(t)}.xlsx`;
 }
