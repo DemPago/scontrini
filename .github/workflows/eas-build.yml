@@ -7,6 +7,8 @@ jobs:
   build:
     name: Build AAB e carica su Play Store (internal)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       HAS_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON != '' }}
     steps:
@@ -35,7 +37,7 @@ jobs:
           git config user.name "github-actions"
           git add app.json
           git commit -m "chore: bump android versionCode [skip ci]"
-          git push
+          git push https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
 
       - name: Setup EAS
         uses: expo/expo-github-action@v8
