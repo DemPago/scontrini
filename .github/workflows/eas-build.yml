@@ -1,8 +1,6 @@
 name: EAS Build & Submit Android
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -31,9 +29,9 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build AAB (production)
+        # EXPO_PUBLIC_GEMINI_API_KEY deve essere configurata in EAS:
+        # expo.dev → progetto → Environment Variables → aggiungi come Secret
         run: eas build --platform android --profile production --non-interactive
-        env:
-          EXPO_PUBLIC_GEMINI_API_KEY: ${{ secrets.EXPO_PUBLIC_GEMINI_API_KEY }}
 
       - name: Submit al Play Store (internal track)
         if: env.HAS_SERVICE_ACCOUNT == 'true'
