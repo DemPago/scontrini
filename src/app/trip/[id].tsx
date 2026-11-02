@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import * as XLSX from 'xlsx';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase, Expense, Trip, tripFileName } from '../../lib/supabase';
 import { getUser, ownerKey } from '../../lib/user';
 
@@ -78,19 +79,31 @@ export default function TripScreen() {
             const ws   = XLSX.utils.json_to_sheet(rows);
             const wb   = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Spese');
-            const data = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
-            const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
+            const base64  = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
             const filename = tripFileName(trip, cognome || 'Scontrini');
             const user     = await getUser();
             const owner    = user ? ownerKey(user) : 'unknown';
             const path     = `${owner}/${filename}`;
+            const localPath = `${FileSystem.cacheDirectory}${filename}`;
 
-            const { error: upErr } = await supabase.storage
-              .from('exports')
-              .upload(path, blob, { contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', upsert: true });
+            await FileSystem.writeAsStringAsync(localPath, base64, { encoding: FileSystem.EncodingType.Base64 });
 
-            if (upErr) { Alert.alert('Upload fallito', upErr.message); setClosing(false); return; }
+            const { data: { session } } = await supabase.auth.getSession();
+            const uploadRes = await FileSystem.uploadAsync(
+              `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/exports/${path}`,
+              localPath,
+              {
+                httpMethod: 'POST',
+                headers: {
+                  Authorization: `Bearer ${session!.access_token}`,
+                  apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                  'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                  'x-upsert': 'true',
+                },
+              }
+            );
+
+            if (uploadRes.status >= 300) { Alert.alert('Upload fallito', uploadRes.body); setClosing(false); return; }
 
             const excel_url = supabase.storage.from('exports').getPublicUrl(path).data.publicUrl;
 
