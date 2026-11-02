@@ -10,7 +10,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase, Category, CATEGORIES } from '../../lib/supabase';
 import { getUser, ownerKey } from '../../lib/user';
 
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${process.env.EXPO_PUBLIC_GEMINI_API_KEY}`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${process.env.EXPO_PUBLIC_GEMINI_API_KEY}`;
 
 export default function AddExpenseScreen() {
   const router = useRouter();
