@@ -17,9 +17,14 @@ export default function RootLayout() {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) setRedirectTo('/auth/login');
-      else setRedirectTo('/');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session) {
+        setRedirectTo('/auth/login');
+      } else {
+        const { data: profile } = await supabase
+          .from('profiles').select('id').eq('id', session.user.id).maybeSingle();
+        setRedirectTo(profile ? '/' : '/auth/profile-setup');
+      }
     });
 
     return () => subscription.unsubscribe();

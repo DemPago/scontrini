@@ -13,13 +13,22 @@ export default function ProfileSetupScreen() {
   const [saving, setSaving]   = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
       const full = user.user_metadata?.full_name as string | undefined;
       if (full) {
         const parts = full.trim().split(' ');
-        setNome(parts[0] ?? '');
-        setCognome(parts.slice(1).join(' ') ?? '');
+        const n = parts[0] ?? '';
+        const c = parts.slice(1).join(' ') ?? '';
+        // se Google ha già nome e cognome, salva direttamente senza mostrare il form
+        if (n && c) {
+          const { error } = await supabase.from('profiles').upsert({
+            id: user.id, email: user.email, nome: n, cognome: c,
+          });
+          if (!error) { router.replace('/'); return; }
+        }
+        setNome(n);
+        setCognome(c);
       }
     });
   }, []);
