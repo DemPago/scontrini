@@ -24,6 +24,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android build tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006"
+
       - name: Bump versionCode
         run: |
           node -e "
@@ -45,14 +54,17 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build AAB (production)
+      - name: Build AAB locally (production)
         # EXPO_PUBLIC_GEMINI_API_KEY deve essere configurata in EAS:
-        # expo.dev → progetto → Environment Variables → aggiungi come Secret
-        run: eas build --platform android --profile production --non-interactive
+        # expo.dev → progetto → Environment Variables → production, visibilità Sensitive
+        run: eas build --platform android --profile production --non-interactive --local --output "$RUNNER_TEMP/scontrini.aab"
 
       - name: Submit al Play Store (internal track)
         if: env.HAS_SERVICE_ACCOUNT == 'true'
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
         run: |
-          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > google-service-account.json
-          eas submit --platform android --profile production --non-interactive --latest
-          rm google-service-account.json
+          umask 077
+          trap 'rm -f google-service-account.json' EXIT
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > google-service-account.json
+          eas submit --platform android --profile production --non-interactive --path "$RUNNER_TEMP/scontrini.aab"
